@@ -3,15 +3,12 @@ const app = new PIXI.Application({
     backgroundColor: 0x1099bb,
 });
 document.body.appendChild(app.view);
-
-// Player Ball Properties
+app.interactive = true
 const playerProperties = {
     radius: 20,
     color: 0x0000FF,
     speed: 5,
 };
-
-// Player Ball
 const playerBall = new PIXI.Graphics();
 playerBall.beginFill(playerProperties.color);
 playerBall.drawCircle(0, 0, playerProperties.radius);
@@ -20,13 +17,9 @@ playerBall.x = app.screen.width / 2;
 playerBall.y = app.screen.height / 2;
 app.stage.addChild(playerBall);
 
-// Bullets Array
 const bullets = [];
 
-// Object to track the state of each key
 const keyState = {};
-
-// Player Movement
 document.addEventListener('keydown', (e) => {
     keyState[e.key] = true;
 });
@@ -34,47 +27,46 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     keyState[e.key] = false;
 });
-
-// Update Function
 app.ticker.add(() => {
     const speed = playerProperties.speed;
 
-    // Smooth movement in both x and y directions
     if (keyState['w']) playerBall.y -= speed;
     if (keyState['a']) playerBall.x -= speed;
     if (keyState['s']) playerBall.y += speed;
     if (keyState['d']) playerBall.x += speed;
+});
+let mouseX, mouseY;
 
-    bullets.forEach((bullet, index) => {
-        bullet.y += bullet.vy;
-        if (bullet.y < 0 || bullet.y > app.screen.height) {
-            app.stage.removeChild(bullet);
-            bullets.splice(index, 1);
-        }
-    });
+app.renderer.view.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY; 
 });
 
-// Shooting Mechanism
 function shootBullet() {
-    const bullet = new PIXI.Graphics();
+
+  // Calculate angle
+  const angle = Math.atan2(mouseY - playerBall.y, mouseX - playerBall.x);
+
+  // Rotate player 
+  playerBall.rotation = angle;
+
+   const bullet = new PIXI.Graphics();
     bullet.beginFill(0xFFFFFF);
     bullet.drawCircle(0, 0, 5); // Bullet size
     bullet.endFill();
     bullet.x = playerBall.x;
     bullet.y = playerBall.y;
-    app.stage.addChild(bullet);
-
-    // Bullet movement (example: straight up)
-    bullet.vy = -5;
-    bullets.push(bullet);
+  const speed = 7;
+  const vx = Math.cos(angle) * speed;
+  const vy = Math.sin(angle) * speed;
+  bullet.vx = vx;
+  bullet.vy = vy;
+console.log(bullet.vx + "," + bullet.vy)
+  app.stage.addChild(bullet);
+  bullets.push(bullet)
 }
+app.renderer.view.addEventListener('click', shootBullet);
 
-// Trigger Shooting on Spacebar
-document.addEventListener('keydown', (e) => {
-    if (e.key === ' ') {
-        shootBullet();
-    }
-});
 
 const properties = {
     ballRadius: 15,
@@ -82,8 +74,8 @@ const properties = {
     ballSpeed: 3,
     num: 99,
     numInfected: 10,
-    worldBorderWidth: 3,
-    worldBorderColor: 0xb00b69,
+    worldBorderWidth: 5,
+    worldBorderColor: 0xFFFFFF,
 };
 
 const balls = [];
@@ -119,6 +111,10 @@ function update() {
             }
         }
     });
+     bullets.forEach(bullet => {
+    bullet.x += bullet.vx;
+    bullet.y += bullet.vy;
+  });
 
     const border = new PIXI.Graphics();
     border.lineStyle(properties.worldBorderWidth, properties.worldBorderColor);
@@ -175,20 +171,12 @@ function startSimulation() {
     properties.ballSpeed = parseFloat(document.getElementById('ballSpeedInput').value);
     properties.num = parseInt(document.getElementById('numInput').value);
     properties.numInfected = parseInt(document.getElementById('numInfectedInput').value); // Update numInfected
-
-    // Clear existing balls
     balls.forEach(ball => app.stage.removeChild(ball.ball));
     balls.length = 0;
-
-    // Create new balls
     for (let i = 0; i < properties.num; i++) {
         createBall();
     }
-
-    // Start animation
     app.ticker.add(update);
-
-    // Remove start menu
     document.getElementById('startMenu').style.display = 'none';
 }
 
