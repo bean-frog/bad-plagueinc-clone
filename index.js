@@ -8,6 +8,7 @@ const playerProperties = {
     radius: 20,
     color: 0x0000FF,
     speed: 5,
+    health: 3
 };
 const playerBall = new PIXI.Graphics();
 playerBall.beginFill(playerProperties.color);
@@ -38,32 +39,81 @@ app.ticker.add(() => {
 let mouseX, mouseY;
 
 app.renderer.view.addEventListener('mousemove', e => {
-  mouseX = e.clientX;
-  mouseY = e.clientY; 
+    mouseX = e.clientX;
+    mouseY = e.clientY;
 });
 
+function bulletBallCollision(bullet, ball) {
+    const dx = bullet.x - ball.ball.x;
+    const dy = bullet.y - ball.ball.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const isColliding = distance < properties.ballRadius;
+
+    if (isColliding) {
+        if (ball.color === 0xFF0000) {
+            if (ball.hits > 0) {
+                ball.hits--;
+            } else {
+                ball.color = properties.ballColor;
+                ball.ball.clear();
+                ball.ball.beginFill(ball.color);
+                ball.ball.drawCircle(0, 0, properties.ballRadius);
+                ball.ball.endFill();
+            }
+        }
+        app.stage.removeChild(bullet);
+        const bulletIndex = bullets.indexOf(bullet);
+        if (bulletIndex !== -1) {
+            bullets.splice(bulletIndex, 1);
+        }
+    }
+
+    return isColliding;
+}
+
+let lastCollisionTime = 0;
+const debounceTime = 1000; 
+
+function playerCollision(ball) {
+    if (ball.color != 0x008B02) {
+        const dx = playerBall.x - ball.ball.x;
+        const dy = playerBall.y - ball.ball.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const isColliding = distance < properties.ballRadius;
+
+        if (isColliding) {
+            const currentTime = Date.now();
+            if (currentTime - lastCollisionTime >= debounceTime) {
+                playerProperties.health -= 1;
+                if (playerProperties.health <= 0) {
+                    gameOver("You Died!")
+                }
+                lastCollisionTime = currentTime;
+            }
+        }
+
+        return isColliding;
+    }
+}
+
 function shootBullet() {
-
-  // Calculate angle
-  const angle = Math.atan2(mouseY - playerBall.y, mouseX - playerBall.x);
-
-  // Rotate player 
-  playerBall.rotation = angle;
-
-   const bullet = new PIXI.Graphics();
+    const angle = Math.atan2(mouseY - playerBall.y, mouseX - playerBall.x);
+    playerBall.rotation = angle;
+    const bullet = new PIXI.Graphics();
     bullet.beginFill(0xFFFFFF);
     bullet.drawCircle(0, 0, 5); // Bullet size
     bullet.endFill();
     bullet.x = playerBall.x;
     bullet.y = playerBall.y;
-  const speed = 7;
-  const vx = Math.cos(angle) * speed;
-  const vy = Math.sin(angle) * speed;
-  bullet.vx = vx;
-  bullet.vy = vy;
-console.log(bullet.vx + "," + bullet.vy)
-  app.stage.addChild(bullet);
-  bullets.push(bullet)
+    const speed = 10;
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
+
+    bullet.vx = vx;
+    bullet.vy = vy;
+    console.log(bullet.vx + "," + bullet.vy)
+    app.stage.addChild(bullet);
+    bullets.push(bullet)
 }
 app.renderer.view.addEventListener('click', shootBullet);
 
@@ -83,17 +133,20 @@ const balls = [];
 function createBall() {
     const x = Math.random() * (app.screen.width - 2 * properties.ballRadius) + properties.ballRadius;
     const y = Math.random() * (app.screen.height - 2 * properties.ballRadius) + properties.ballRadius;
-    const color = balls.length < properties.numInfected ? 0xFF0000 : properties.ballColor; // Set color to red for infected balls
+    const color = balls.length < properties.numInfected ? 0xFF0000 : properties.ballColor; 
     const ball = new Ball(x, y, properties.ballRadius, color, properties.ballSpeed);
     balls.push(ball);
 }
 
 function update() {
+    let infectedCount = 0;
+    let healthyCount = 0;
     balls.forEach((ball, index) => {
+        playerCollision(ball)
+        // Update ball positions
         ball.ball.x += ball.ball.vx;
         ball.ball.y += ball.ball.vy;
-
-        if (ball.ball.x + properties.ballRadius >= app.screen.width || ball.ball.x - properties.ballRadius <= 0) {
+    if (ball.ball.x + properties.ballRadius >= app.screen.width || ball.ball.x - properties.ballRadius <= 0) {
             ball.ball.vx *= -1;
         }
         if (ball.ball.y + properties.ballRadius >= app.screen.height || ball.ball.y - properties.ballRadius <= 0) {
@@ -110,17 +163,53 @@ function update() {
                 }
             }
         }
+        if (ball.color === 0xFF0000) {
+            infectedCount++;
+        } else {
+            healthyCount++;
+        }
     });
-     bullets.forEach(bullet => {
-    bullet.x += bullet.vx;
-    bullet.y += bullet.vy;
-  });
 
+    if (infectedCount === 0) {
+        displayWonScreen();
+        return;
+    } else if (healthyCount === 0) {
+        gameOver("All balls have been infected :(");
+        return;
+    }
+
+    // Update bullets
+    updateBullets();
+
+    drawBorder();
+}
+
+function gameOver(message) {
+    alert(message)
+}
+
+function displayWonScreen() {
+    alert("Congratulations! You've won the game!");
+}
+
+
+function updateBullets() {
+    bullets.forEach(bullet => {
+        bullet.x += bullet.vx;
+        bullet.y += bullet.vy;
+        balls.forEach(ball => {
+            bulletBallCollision(bullet, ball);
+        });
+    });
+}
+
+function drawBorder() {
     const border = new PIXI.Graphics();
     border.lineStyle(properties.worldBorderWidth, properties.worldBorderColor);
     border.drawRect(0, 0, app.screen.width, app.screen.height);
     app.stage.addChild(border);
 }
+
 
 function areColliding(ball1, ball2) {
     const dx = ball1.ball.x - ball2.ball.x;
@@ -128,7 +217,6 @@ function areColliding(ball1, ball2) {
     const distance = Math.sqrt(dx * dx + dy * dy);
     return distance < 2 * properties.ballRadius;
 }
-
 class Ball {
     constructor(x, y, radius, color, speed) {
         this.ball = new PIXI.Graphics();
@@ -139,7 +227,10 @@ class Ball {
         this.ball.y = y;
         this.ball.vx = 0;
         this.ball.vy = 0;
+        this.ball.hits = 3;
         this.color = color;
+        this.healedColor = 0x00FFD8
+        this.immune = false;
         app.stage.addChild(this.ball);
         this.moveRandomlyInterval = setInterval(() => this.moveRandomly(), Math.random() * 1000 + 500);
     }
@@ -148,7 +239,7 @@ class Ball {
         const randomAngle = Math.random() * Math.PI * 2;
         this.ball.vx = Math.cos(randomAngle) * properties.ballSpeed;
         this.ball.vy = Math.sin(randomAngle) * properties.ballSpeed;
-        setTimeout(() => this.stop(), Math.random() * 1000 + 1000);
+        setTimeout(() => this.stop(), Math.random() * 1000 + 1500);
     }
 
     stop() {
@@ -157,7 +248,7 @@ class Ball {
     }
 
     infect() {
-        if (this.color !== 0xFF0000) {
+        if (!this.immune && this.color !== 0xFF0000) { // Check if not immune
             this.color = 0xFF0000;
             this.ball.clear();
             this.ball.beginFill(this.color);
@@ -165,12 +256,45 @@ class Ball {
             this.ball.endFill();
         }
     }
+
+    heal() {
+        this.immune = true; 
+        this.color = this.healedColor;
+        this.ball.clear();
+        this.ball.beginFill(this.color);
+        this.ball.drawCircle(0, 0, properties.ballRadius);
+        this.ball.endFill();
+    }
 }
 
+function bulletBallCollision(bullet, ball) {
+    const dx = bullet.x - ball.ball.x;
+    const dy = bullet.y - ball.ball.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const isColliding = distance < properties.ballRadius;
+
+    if (isColliding) {
+        if (ball.color === 0xFF0000) {
+            if (ball.hits > 0) {
+                ball.hits--;
+            } else {
+                ball.heal();
+            }
+        }
+        app.stage.removeChild(bullet);
+        const bulletIndex = bullets.indexOf(bullet);
+        if (bulletIndex !== -1) {
+            bullets.splice(bulletIndex, 1);
+        }
+    }
+
+    return isColliding;
+}
 function startSimulation() {
     properties.ballSpeed = parseFloat(document.getElementById('ballSpeedInput').value);
     properties.num = parseInt(document.getElementById('numInput').value);
-    properties.numInfected = parseInt(document.getElementById('numInfectedInput').value); // Update numInfected
+    properties.numInfected = parseInt(document.getElementById('numInfectedInput').value);
+    playerProperties.health = parseInt(document.getElementById('playerhealthinput').value);
     balls.forEach(ball => app.stage.removeChild(ball.ball));
     balls.length = 0;
     for (let i = 0; i < properties.num; i++) {
