@@ -3,13 +3,15 @@ const app = new PIXI.Application({
     backgroundColor: 0x1099bb,
 });
 document.body.appendChild(app.view);
-app.interactive = true
+app.interactive = true;
+
 const playerProperties = {
     radius: 20,
     color: 0x0000FF,
     speed: 5,
     health: 3
 };
+
 const playerBall = new PIXI.Graphics();
 playerBall.beginFill(playerProperties.color);
 playerBall.drawCircle(0, 0, playerProperties.radius);
@@ -28,6 +30,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     keyState[e.key] = false;
 });
+
 app.ticker.add(() => {
     const speed = playerProperties.speed;
 
@@ -36,6 +39,7 @@ app.ticker.add(() => {
     if (keyState['s']) playerBall.y += speed;
     if (keyState['d']) playerBall.x += speed;
 });
+
 let mouseX, mouseY;
 
 app.renderer.view.addEventListener('mousemove', e => {
@@ -54,11 +58,7 @@ function bulletBallCollision(bullet, ball) {
             if (ball.hits > 0) {
                 ball.hits--;
             } else {
-                ball.color = properties.ballColor;
-                ball.ball.clear();
-                ball.ball.beginFill(ball.color);
-                ball.ball.drawCircle(0, 0, properties.ballRadius);
-                ball.ball.endFill();
+                ball.heal();
             }
         }
         app.stage.removeChild(bullet);
@@ -72,7 +72,7 @@ function bulletBallCollision(bullet, ball) {
 }
 
 let lastCollisionTime = 0;
-const debounceTime = 1000; 
+const debounceTime = 1000;
 
 function playerCollision(ball) {
     if (ball.color != 0x008B02) {
@@ -86,7 +86,7 @@ function playerCollision(ball) {
             if (currentTime - lastCollisionTime >= debounceTime) {
                 playerProperties.health -= 1;
                 if (playerProperties.health <= 0) {
-                    gameOver("You Died!")
+                    gameOver("You Died!");
                 }
                 lastCollisionTime = currentTime;
             }
@@ -111,12 +111,12 @@ function shootBullet() {
 
     bullet.vx = vx;
     bullet.vy = vy;
-    console.log(bullet.vx + "," + bullet.vy)
+    console.log(bullet.vx + "," + bullet.vy);
     app.stage.addChild(bullet);
-    bullets.push(bullet)
+    bullets.push(bullet);
 }
-app.renderer.view.addEventListener('click', shootBullet);
 
+app.renderer.view.addEventListener('click', shootBullet);
 
 const properties = {
     ballRadius: 15,
@@ -133,7 +133,7 @@ const balls = [];
 function createBall() {
     const x = Math.random() * (app.screen.width - 2 * properties.ballRadius) + properties.ballRadius;
     const y = Math.random() * (app.screen.height - 2 * properties.ballRadius) + properties.ballRadius;
-    const color = balls.length < properties.numInfected ? 0xFF0000 : properties.ballColor; 
+    const color = balls.length < properties.numInfected ? 0xFF0000 : properties.ballColor;
     const ball = new Ball(x, y, properties.ballRadius, color, properties.ballSpeed);
     balls.push(ball);
 }
@@ -142,11 +142,11 @@ function update() {
     let infectedCount = 0;
     let healthyCount = 0;
     balls.forEach((ball, index) => {
-        playerCollision(ball)
+        playerCollision(ball);
         // Update ball positions
         ball.ball.x += ball.ball.vx;
         ball.ball.y += ball.ball.vy;
-    if (ball.ball.x + properties.ballRadius >= app.screen.width || ball.ball.x - properties.ballRadius <= 0) {
+        if (ball.ball.x + properties.ballRadius >= app.screen.width || ball.ball.x - properties.ballRadius <= 0) {
             ball.ball.vx *= -1;
         }
         if (ball.ball.y + properties.ballRadius >= app.screen.height || ball.ball.y - properties.ballRadius <= 0) {
@@ -184,14 +184,16 @@ function update() {
     drawBorder();
 }
 
+
+
 function gameOver(message) {
-    alert(message)
+    document.getElementById("loseModal").style.display = "block";
 }
 
 function displayWonScreen() {
-    alert("Congratulations! You've won the game!");
-}
+    document.getElementById("winModal").style.display = "block";
 
+}
 
 function updateBullets() {
     bullets.forEach(bullet => {
@@ -210,13 +212,13 @@ function drawBorder() {
     app.stage.addChild(border);
 }
 
-
 function areColliding(ball1, ball2) {
     const dx = ball1.ball.x - ball2.ball.x;
     const dy = ball1.ball.y - ball2.ball.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     return distance < 2 * properties.ballRadius;
 }
+
 class Ball {
     constructor(x, y, radius, color, speed) {
         this.ball = new PIXI.Graphics();
@@ -302,6 +304,9 @@ function startSimulation() {
     }
     app.ticker.add(update);
     document.getElementById('startMenu').style.display = 'none';
+}
+function returnToStart() {
+    window.location.reload()
 }
 
 document.getElementById('startButton').addEventListener('click', startSimulation);
